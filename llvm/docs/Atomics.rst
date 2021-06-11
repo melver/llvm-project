@@ -641,3 +641,45 @@ implemented in both ``compiler-rt`` and ``libgcc`` libraries
 Please note, if LSE instruction set is specified for AArch64 target then
 out-of-line atomics calls are not generated and single-instruction atomic
 operations are used in place.
+
+Control Dependencies
+====================
+
+Some targets (e.g. AArch64, POWER) guarantee that the read result of a load
+used in the condition of a conditional branch orders some subset of later
+operations, without requiring the use of either an acquire load or fence.
+
+LLVM provides ``llvm.control_dependency`` to establish target-dependent
+control-dependency ordering between reads used in the production of the
+condition, and later operations. The intrinsic is provided by clang as::
+
+    bool __builtin_control_dependency(bool cond)
+
+Relevant standard
+  The `Linux-kernel memory consistency model (LKMM)
+  <http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0124r6.html>`_
+  relies on control dependencies that can be implemented with
+  ``__builtin_control_dependency``: control dependencies order prior reads
+  against later dependent writes.
+
+Notes for frontends
+  If you are writing a frontend which uses this directly, use with caution.
+  It is expected that the intrinsic return value is used by the condition of
+  control statements, although not required, not doing so may result in
+  generation of unnecessary branch instructions.
+
+Notes for optimizers
+  Optimizers not aware of atomics can treat this like a nothrow call.  Must be
+  treated like an Acquire fence. Atomic or volatile load results used in the
+  condition must not be substituted. No guarantees are made about preserving
+  other `NotAtomic`_ loads used in the condition. May be optimized out if the
+  source of the condition is a constant expression.
+
+Notes for code generation
+  Architectures with weak memory ordering that preserve control dependencies
+  require generation of an explicit conditional branch. Such branch either
+  branches to the following instruction, or if the result of the intrinsic is
+  used in the condition of a real branch, merely ensures that a real branch is
+  generated. This also means that the conditionally executed instructions and
+  the branch cannot be replaced by "conditional select instructions" (as
+  supported by e.g. AArch64).
