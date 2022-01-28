@@ -158,6 +158,28 @@ MDNode *MDBuilder::createRTTIPointerPrologue(Constant *PrologueSig,
   return MDNode::get(Context, Ops);
 }
 
+MDNode *
+MDBuilder::createPCSections(ArrayRef<StringRef> Sections,
+                            ArrayRef<ArrayRef<Constant *>> AuxData) {
+  SmallVector<Metadata *, 2> Ops;
+
+  for (size_t i = 0; i < Sections.size(); i++) {
+    const StringRef &S = Sections[i];
+    Ops.push_back(createString(S));
+
+    // If auxiliary data for this section exists, append it.
+    if (i < AuxData.size()) {
+      const ArrayRef<Constant *> &AuxConsts = AuxData[i];
+      for (Constant *C : AuxConsts) {
+        if (C)
+          Ops.push_back(createConstant(C));
+      }
+    }
+  }
+
+  return MDNode::get(Context, Ops);
+}
+
 MDNode *MDBuilder::createAnonymousAARoot(StringRef Name, MDNode *Extra) {
   SmallVector<Metadata *, 3> Args(1, nullptr);
   if (Extra)

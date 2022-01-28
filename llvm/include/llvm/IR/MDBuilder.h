@@ -113,6 +113,14 @@ public:
   MDNode *createRTTIPointerPrologue(Constant *PrologueSig, Constant *RTTI);
 
   //===------------------------------------------------------------------===//
+  // PC sections metadata.
+  //===------------------------------------------------------------------===//
+
+  /// Return metadata for PC sections.
+  MDNode *createPCSections(ArrayRef<StringRef> Sections,
+                           ArrayRef<ArrayRef<Constant *>> AuxData);
+
+  //===------------------------------------------------------------------===//
   // AA metadata.
   //===------------------------------------------------------------------===//
 
