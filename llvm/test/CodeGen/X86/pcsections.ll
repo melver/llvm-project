@@ -1,8 +1,8 @@
-; BROKEN: llc -O0 < %s | FileCheck %s --check-prefixes=CHECK,DEFCM
-; BROKEN: llc -O1 < %s | FileCheck %s --check-prefixes=CHECK,DEFCM
-; BROKEN: llc -O2 < %s | FileCheck %s --check-prefixes=CHECK,DEFCM
-; BROKEN: llc -O3 < %s | FileCheck %s --check-prefixes=CHECK,DEFCM
-; BROKEN: llc -O1 -code-model=large < %s | FileCheck %s --check-prefixes=CHECK,LARGE
+; RUN: llc -O0 < %s | FileCheck %s --check-prefixes=CHECK,DEFCM
+; RUN: llc -O1 < %s | FileCheck %s --check-prefixes=CHECK,DEFCM
+; RUN: llc -O2 < %s | FileCheck %s --check-prefixes=CHECK,DEFCM
+; RUN: llc -O3 < %s | FileCheck %s --check-prefixes=CHECK,DEFCM
+; RUN: llc -O1 -code-model=large < %s | FileCheck %s --check-prefixes=CHECK,LARGE
 
 target triple = "x86_64-unknown-linux-gnu"
 
