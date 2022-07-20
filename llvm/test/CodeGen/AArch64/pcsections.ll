@@ -1,4 +1,4 @@
-; BROKEN: llc -O0 < %s | FileCheck %s --check-prefixes=CHECK,CHECK-UNOPT,DEFCM
+; RUN: llc -O0 < %s | FileCheck %s --check-prefixes=CHECK,CHECK-UNOPT,DEFCM
 ; RUN: llc -O1 < %s | FileCheck %s --check-prefixes=CHECK,CHECK-OPT,DEFCM
 ; RUN: llc -O2 < %s | FileCheck %s --check-prefixes=CHECK,CHECK-OPT,DEFCM
 ; RUN: llc -O3 < %s | FileCheck %s --check-prefixes=CHECK,CHECK-OPT,DEFCM
