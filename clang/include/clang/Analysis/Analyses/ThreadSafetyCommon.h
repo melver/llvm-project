@@ -31,10 +31,12 @@
 #include "clang/Analysis/CFG.h"
 #include "clang/Basic/LLVM.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
+#include <optional>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -386,6 +388,11 @@ public:
     SelfVar->setKind(til::Variable::VK_SFun);
   }
 
+  // Create placeholder for this: we don't know the VarDecl on construction yet.
+  til::LiteralPtr *createThisPlaceholder() {
+    return new (Arena) til::LiteralPtr(nullptr);
+  }
+
   // Translate a clang expression in an attribute to a til::SExpr.
   // Constructs the context from D, DeclExp, and SelfDecl.
   CapabilityExpr translateAttrExpr(const Expr *AttrExp, const NamedDecl *D,
@@ -394,8 +401,8 @@ public:
 
   CapabilityExpr translateAttrExpr(const Expr *AttrExp, CallingContext *Ctx);
 
-  // Translate a variable reference.
-  til::LiteralPtr *createVariable(const VarDecl *VD);
+  // Translate a VarDecl to its canonical TIL expression.
+  til::SExpr *translateVariable(const VarDecl *VD, CallingContext *Ctx);
 
   // Translate a clang statement or expression to a TIL expression.
   // Also performs substitution of variables; Ctx provides the context.
@@ -445,6 +452,7 @@ private:
       const AbstractConditionalOperator *C, CallingContext *Ctx);
 
   til::SExpr *translateDeclStmt(const DeclStmt *S, CallingContext *Ctx);
+  til::SExpr *translateStmtExpr(const StmtExpr *SE, CallingContext *Ctx);
 
   // Map from statements in the clang CFG to SExprs in the til::SCFG.
   using StatementMap = llvm::DenseMap<const Stmt *, til::SExpr *>;
@@ -501,6 +509,9 @@ private:
   void mergeEntryMapBackEdge();
   void mergePhiNodesBackEdge(const CFGBlock *Blk);
 
+  // Returns true if a variable is assumed to be reassigned.
+  bool isVariableReassigned(const VarDecl *VD);
+
 private:
   // Set to true when parsing capability expressions, which get translated
   // inaccurately in order to hack around smart pointers etc.
@@ -531,6 +542,9 @@ private:
   std::vector<til::Phi *> IncompleteArgs;
   til::BasicBlock *CurrentBB = nullptr;
   BlockInfo *CurrentBlockInfo = nullptr;
+
+  // Set caching local variables that are reassigned.
+  std::optional<llvm::DenseSet<const VarDecl *>> ReassignedLocalVariables;
 };
 
 #ifndef NDEBUG
