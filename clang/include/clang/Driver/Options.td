@@ -2693,6 +2693,22 @@ def fsanitize_skip_hot_cutoff_EQ
           "(0.0 [default] = skip none; 1.0 = skip all). "
           "Argument format: <sanitizer1>=<value1>,<sanitizer2>=<value2>,...">;
 
+def fsanitize_alloc_partition_max_EQ : Joined<["-"], "fsanitize-alloc-partition-max=">,
+  Group<f_Group>, MetaVarName<"<N>">,
+  HelpText<"Limit to maximum N allocation partitions">,
+  MarshallingInfoInt<CodeGenOpts<"SanitizeAllocPartitionMax">, "64">;
+defm sanitize_alloc_partition_fast_abi : BoolOption<"f", "sanitize-alloc-partition-fast-abi",
+  CodeGenOpts<"SanitizeAllocPartitionFastABI">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption], "Use the AllocPartition fast ABI">,
+  NegFlag<SetFalse, [], [ClangOption], "Use the default AllocPartition ABI">>,
+  Group<f_clang_Group>;
+defm sanitize_alloc_partition_extended : BoolOption<"f", "sanitize-alloc-partition-extended",
+  CodeGenOpts<"SanitizeAllocPartitionExtended">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption], "Enable">,
+  NegFlag<SetFalse, [], [ClangOption], "Disable">,
+  BothFlags<[], [ClangOption], " extended coverage to custom allocation functions">>,
+  Group<f_clang_Group>;
+
 } // end -f[no-]sanitize* flags
 
 def fallow_runtime_check_skip_hot_cutoff_EQ

@@ -2167,6 +2167,9 @@ are listed below.
       protection against stack-based memory corruption errors.
    -  ``-fsanitize=realtime``: :doc:`RealtimeSanitizer`,
       a real-time safety checker.
+   -  ``-fsanitize=alloc-partition``: :doc:`AllocPartition`,
+      allocation-partition hints instrumentation (requires compatible
+      allocator).
 
    There are more fine-grained checks available: see
    the :ref:`list <ubsan-checks>` of specific kinds of

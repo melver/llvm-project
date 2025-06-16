@@ -714,6 +714,7 @@ SanitizerMask BareMetal::getSupportedSanitizers() const {
   Res |= SanitizerKind::SafeStack;
   Res |= SanitizerKind::Thread;
   Res |= SanitizerKind::Scudo;
+  Res |= SanitizerKind::AllocPartition;
   if (IsX86_64 || IsAArch64 || IsRISCV64) {
     Res |= SanitizerKind::HWAddress;
     Res |= SanitizerKind::KernelHWAddress;

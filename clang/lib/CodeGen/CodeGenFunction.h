@@ -3342,6 +3342,9 @@ public:
   SanitizerAnnotateDebugInfo(ArrayRef<SanitizerKind::SanitizerOrdinal> Ordinals,
                              SanitizerHandler Handler);
 
+  /// Emit additional metadata used by the AllocPartition instrumentation.
+  void EmitAllocPartitionHint(llvm::CallBase *CB, QualType AllocType);
+
   llvm::Value *GetCountedByFieldExprGEP(const Expr *Base, const FieldDecl *FD,
                                         const FieldDecl *CountDecl);
 

@@ -61,8 +61,9 @@ static const SanitizerMask RecoverableByDefault =
     SanitizerKind::ImplicitConversion | SanitizerKind::Nullability |
     SanitizerKind::FloatDivideByZero | SanitizerKind::ObjCCast |
     SanitizerKind::Vptr;
-static const SanitizerMask Unrecoverable =
-    SanitizerKind::Unreachable | SanitizerKind::Return;
+static const SanitizerMask Unrecoverable = SanitizerKind::Unreachable |
+                                           SanitizerKind::Return |
+                                           SanitizerKind::AllocPartition;
 static const SanitizerMask AlwaysRecoverable = SanitizerKind::KernelAddress |
                                                SanitizerKind::KernelHWAddress |
                                                SanitizerKind::KCFI;
@@ -84,7 +85,8 @@ static const SanitizerMask CFIClasses =
 static const SanitizerMask CompatibleWithMinimalRuntime =
     TrappingSupported | SanitizerKind::Scudo | SanitizerKind::ShadowCallStack |
     SanitizerKind::MemtagStack | SanitizerKind::MemtagHeap |
-    SanitizerKind::MemtagGlobals | SanitizerKind::KCFI;
+    SanitizerKind::MemtagGlobals | SanitizerKind::KCFI |
+    SanitizerKind::AllocPartition;
 
 enum CoverageFeature {
   CoverageFunc = 1 << 0,
@@ -203,6 +205,7 @@ static void addDefaultIgnorelists(const Driver &D, SanitizerMask Kinds,
                      {"tysan_blacklist.txt", SanitizerKind::Type},
                      {"dfsan_abilist.txt", SanitizerKind::DataFlow},
                      {"cfi_ignorelist.txt", SanitizerKind::CFI},
+                     {"alloc_partition_ignorelist.txt", SanitizerKind::AllocPartition},
                      {"ubsan_ignorelist.txt",
                       SanitizerKind::Undefined | SanitizerKind::Vptr |
                           SanitizerKind::Integer | SanitizerKind::Nullability |
@@ -650,7 +653,11 @@ SanitizerArgs::SanitizerArgs(const ToolChain &TC,
       std::make_pair(SanitizerKind::KCFI, SanitizerKind::Function),
       std::make_pair(SanitizerKind::Realtime,
                      SanitizerKind::Address | SanitizerKind::Thread |
-                         SanitizerKind::Undefined | SanitizerKind::Memory)};
+                         SanitizerKind::Undefined | SanitizerKind::Memory),
+      std::make_pair(SanitizerKind::AllocPartition,
+                     SanitizerKind::Address | SanitizerKind::HWAddress |
+                         SanitizerKind::KernelAddress | SanitizerKind::KernelHWAddress |
+                         SanitizerKind::Memory)};
 
   // Enable toolchain specific default sanitizers if not explicitly disabled.
   SanitizerMask Default = TC.getDefaultSanitizers() & ~AllRemove;
@@ -1157,6 +1164,29 @@ SanitizerArgs::SanitizerArgs(const ToolChain &TC,
         !TC.getTriple().isAndroid() && !TC.getTriple().isOSFuchsia();
   }
 
+  if (AllAddedKinds & SanitizerKind::AllocPartition) {
+    if (const auto *Arg =
+            Args.getLastArg(options::OPT_fsanitize_alloc_partition_max_EQ)) {
+      StringRef S = Arg->getValue();
+      unsigned Value = 0;
+      if (S.getAsInteger(0, Value) || Value == 0) {
+        if (DiagnoseErrors)
+          D.Diag(clang::diag::err_drv_invalid_value)
+              << Arg->getAsString(Args) << S;
+      } else {
+        AllocPartitionMax = Value;
+      }
+    }
+    AllocPartitionFastABI =
+        Args.hasFlag(options::OPT_fsanitize_alloc_partition_fast_abi,
+                     options::OPT_fno_sanitize_alloc_partition_fast_abi,
+                     AllocPartitionFastABI);
+    AllocPartitionExtended =
+        Args.hasFlag(options::OPT_fsanitize_alloc_partition_extended,
+                     options::OPT_fno_sanitize_alloc_partition_extended,
+                     AllocPartitionExtended);
+  }
+
   LinkRuntimes = Args.hasFlag(options::OPT_fsanitize_link_runtime,
                               options::OPT_fno_sanitize_link_runtime,
                               !Args.hasArg(options::OPT_r));
@@ -1528,6 +1558,15 @@ void SanitizerArgs::addArgs(const ToolChain &TC, const llvm::opt::ArgList &Args,
   if (Sanitizers.has(SanitizerKind::Memory) ||
       Sanitizers.has(SanitizerKind::Address))
     CmdArgs.push_back("-fno-assume-sane-operator-new");
+
+  // Flags for -fsanitize=alloc-partition.
+  if (AllocPartitionMax.has_value())
+    CmdArgs.push_back(Args.MakeArgString("-fsanitize-alloc-partition-max=" +
+                                         Twine(*AllocPartitionMax)));
+  if (AllocPartitionFastABI)
+    CmdArgs.push_back("-fsanitize-alloc-partition-fast-abi");
+  if (AllocPartitionExtended)
+    CmdArgs.push_back("-fsanitize-alloc-partition-extended");
 
   // libFuzzer wants to intercept calls to certain library functions, so the
   // following -fno-builtin-* flags force the compiler to emit interposable
