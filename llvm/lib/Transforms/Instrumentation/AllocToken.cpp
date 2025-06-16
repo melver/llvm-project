@@ -70,6 +70,11 @@ enum class TokenMode : unsigned {
   /// Token ID based on allocated type hash.
   TypeHash = 2,
 
+  /// Token ID based on allocated type hash, where the top half ID-space is
+  /// reserved for types that contain pointers and the bottom half for types
+  /// that do not contain pointers.
+  TypeHashPointerSplit = 3,
+
   // Mode count - keep last
   ModeCount
 };
@@ -89,7 +94,7 @@ struct ModeParser : public cl::parser<unsigned> {
 
 cl::opt<unsigned, false, ModeParser>
     ClMode("alloc-token-mode", cl::desc("Token assignment mode"), cl::Hidden,
-           cl::init(static_cast<unsigned>(TokenMode::TypeHash)));
+           cl::init(static_cast<unsigned>(TokenMode::TypeHashPointerSplit)));
 
 cl::opt<std::string> ClFuncPrefix("alloc-token-prefix",
                                   cl::desc("The allocation function prefix"),
@@ -142,14 +147,21 @@ STATISTIC(NumAllocations, "Allocations found");
 
 /// Returns the !alloc_token_hint metadata if available.
 ///
-/// Expected format is: !{<type-name>}
+/// Expected format is: !{<type-name>, <contains-pointer>}
 MDNode *getAllocTokenHintMetadata(const CallBase &CB) {
   MDNode *Ret = CB.getMetadata("alloc_token_hint");
   if (!Ret)
     return nullptr;
-  assert(Ret->getNumOperands() == 1 && "bad !alloc_token_hint");
+  assert(Ret->getNumOperands() == 2 && "bad !alloc_token_hint");
   assert(isa<MDString>(Ret->getOperand(0)));
+  assert(isa<ConstantAsMetadata>(Ret->getOperand(1)));
   return Ret;
+}
+
+bool containsPointer(MDNode *MD) {
+  ConstantAsMetadata *C = cast<ConstantAsMetadata>(MD->getOperand(1));
+  auto *CI = cast<ConstantInt>(C->getValue());
+  return CI->getValue().getBoolValue();
 }
 
 /// Infers the allocated IR type by analyzing instruction users on best effort
@@ -195,6 +207,31 @@ Type *inferTypeFromUsers(const CallBase &CB) {
   }
 
   return nullptr;
+}
+
+/// Determines if an LLVM Type is or contains a pointer.
+///
+/// NOTE: Language frontends should prefer emitting !alloc_token_hint.
+bool containsPointer(Type *Ty) {
+  SmallPtrSet<const StructType *, 4> Visited;
+  auto TypeContainsPtr = [&Visited](auto &&self, Type *Ty) -> bool {
+    if (Ty->isPointerTy())
+      return true; // base case
+    // Handle arrays.
+    if (Ty->isArrayTy())
+      return self(self, Ty->getArrayElementType());
+    // Traverse structs.
+    if (auto *STy = dyn_cast<StructType>(Ty)) {
+      if (!Visited.insert(STy).second)
+        return false; // already visited
+      for (Type *ElementType : STy->elements()) {
+        if (self(self, ElementType))
+          return true;
+      }
+    }
+    return false;
+  };
+  return TypeContainsPtr(TypeContainsPtr, Ty);
 }
 
 class ModeBase {
@@ -243,17 +280,25 @@ public:
   using ModeBase::ModeBase;
 
   uint64_t operator()(const CallBase &CB, OptimizationRemarkEmitter &ORE) {
-    std::optional<uint64_t> H;
+    auto [N, H] = getHash(CB, ORE);
+    const bool Valid =
+        std::visit([](auto &&TyOrMD) { return TyOrMD != nullptr; }, N);
+    return Valid ? boundedToken(H) : H;
+  }
 
+protected:
+  std::pair<std::variant<MDNode *, Type *>, uint64_t>
+  getHash(const CallBase &CB, OptimizationRemarkEmitter &ORE) {
     if (MDNode *N = getAllocTokenHintMetadata(CB)) {
       MDString *S = cast<MDString>(N->getOperand(0));
-      H = xxHash64(S->getString());
-    } else {
-      remarkNoHint(CB, ORE);
+      return {N, xxHash64(S->getString())};
     }
+    // Fallback.
+    remarkNoHint(CB, ORE);
     if (Type *T = inferTypeFromUsers(CB)) {
       // Printing the full IR type is expensive, cache the hash.
       auto It = HashCache.find(T);
+      uint64_t H;
       if (It == HashCache.end()) {
         std::string TypeName;
         raw_string_ostream RSO(TypeName);
@@ -262,9 +307,10 @@ public:
       } else {
         H = It->second;
       }
+      return {T, H};
     }
 
-    return H.has_value() ? boundedToken(*H) : ClFallbackToken;
+    return {static_cast<MDNode *>(nullptr), ClFallbackToken};
   }
 
   /// Remark that there was no precise type information.
@@ -281,6 +327,35 @@ public:
 
 private:
   DenseMap<Type *, uint64_t> HashCache;
+};
+
+/// Implementation for TokenMode::TypeHashPointerSplit.
+class TypeHashPointerSplitMode : public TypeHashMode {
+public:
+  using TypeHashMode::TypeHashMode;
+
+  uint64_t operator()(const CallBase &CB, OptimizationRemarkEmitter &ORE) {
+    if (MaxTokens == 1)
+      return 0;
+    const uint64_t HalfTokens =
+        (MaxTokens ? MaxTokens : std::numeric_limits<uint64_t>::max()) / 2;
+    const auto SourceAndHash = getHash(CB, ORE);
+    bool Valid = false;
+    const bool ContainsPtr = std::visit(
+        [&](auto &&TyOrMD) {
+          if (!TyOrMD)
+            return false;
+          Valid = true;
+          return containsPointer(TyOrMD);
+        },
+        SourceAndHash.first);
+    if (!Valid)
+      return SourceAndHash.second;
+    uint64_t Hash = SourceAndHash.second % HalfTokens; // base hash
+    if (ContainsPtr)
+      Hash += HalfTokens;
+    return Hash;
+  }
 };
 
 // Apply opt overrides.
@@ -307,6 +382,9 @@ public:
       break;
     case TokenMode::TypeHash:
       Mode.emplace<TypeHashMode>(*Options.MaxTokens);
+      break;
+    case TokenMode::TypeHashPointerSplit:
+      Mode.emplace<TypeHashPointerSplitMode>(*Options.MaxTokens);
       break;
     case TokenMode::ModeCount:
       llvm_unreachable("");
@@ -345,7 +423,9 @@ private:
   // Cache for replacement functions.
   DenseMap<std::pair<LibFunc, uint64_t>, FunctionCallee> TokenAllocFunctions;
   // Selected mode.
-  std::variant<IncrementMode, RandomMode, TypeHashMode> Mode;
+  std::variant<IncrementMode, RandomMode, TypeHashMode,
+               TypeHashPointerSplitMode>
+      Mode;
 };
 
 bool AllocToken::instrumentFunction(Function &F) {
