@@ -97,6 +97,8 @@ FEATURE(function_sanitizer,
 
 FEATURE(realtime_sanitizer,
         LangOpts.Sanitize.has(SanitizerKind::Realtime))
+FEATURE(alloc_token,
+        LangOpts.Sanitize.has(SanitizerKind::AllocToken))
 FEATURE(coverage_sanitizer, LangOpts.SanitizeCoverage)
 FEATURE(assume_nonnull, true)
 FEATURE(attribute_analyzer_noreturn, true)
