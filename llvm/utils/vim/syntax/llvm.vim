@@ -163,6 +163,7 @@ syn keyword llvmKeyword
       \ returns_twice
       \ safestack
       \ sanitize_address
+      \ sanitize_alloc_partition
       \ sanitize_hwaddress
       \ sanitize_memory
       \ sanitize_memtag

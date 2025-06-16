@@ -1,5 +1,6 @@
 add_llvm_component_library(LLVMInstrumentation
   AddressSanitizer.cpp
+  AllocPartition.cpp
   BoundsChecking.cpp
   CGProfile.cpp
   ControlHeightReduction.cpp
