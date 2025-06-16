@@ -69,6 +69,11 @@ enum class PartitionMode : unsigned {
   /// Partition ID based on allocated type hash.
   TypeHash = 2,
 
+  /// Partition ID based on allocated type hash, where the top half ID-space is
+  /// reserved for types that contain pointers and the bottom half for types
+  /// that do not contain pointers.
+  TypeHashPointerSplit = 3,
+
   // Mode count - keep last
   ModeCount
 };
@@ -86,10 +91,9 @@ struct ModeParser : public cl::parser<unsigned> {
   }
 };
 
-cl::opt<unsigned, false, ModeParser>
-    ClMode("alloc-partition-mode", cl::desc("Partition assignment mode"),
-           cl::Hidden,
-           cl::init(static_cast<unsigned>(PartitionMode::TypeHash)));
+cl::opt<unsigned, false, ModeParser> ClMode(
+    "alloc-partition-mode", cl::desc("Partition assignment mode"), cl::Hidden,
+    cl::init(static_cast<unsigned>(PartitionMode::TypeHashPointerSplit)));
 
 cl::opt<std::string> ClFuncPrefix("alloc-partition-prefix",
                                   cl::desc("The allocation function prefix"),
@@ -143,14 +147,21 @@ STATISTIC(NumAllocations, "Allocations found");
 
 /// Returns the !alloc_partition_hint metadata if available.
 ///
-/// Expected format is: !{<type-name>}
+/// Expected format is: !{<type-name>, <contains-pointer>}
 MDNode *getAllocPartitionHintMetadata(const CallBase &CB) {
   MDNode *Ret = CB.getMetadata("alloc_partition_hint");
   if (!Ret)
     return nullptr;
-  assert(Ret->getNumOperands() == 1 && "bad !alloc_partition_hint");
+  assert(Ret->getNumOperands() == 2 && "bad !alloc_partition_hint");
   assert(isa<MDString>(Ret->getOperand(0)));
+  assert(isa<ConstantAsMetadata>(Ret->getOperand(1)));
   return Ret;
+}
+
+bool containsPointer(MDNode *MD) {
+  ConstantAsMetadata *C = cast<ConstantAsMetadata>(MD->getOperand(1));
+  auto *CI = cast<ConstantInt>(C->getValue());
+  return CI->getValue().getBoolValue();
 }
 
 /// Infers the allocated IR type by analyzing instruction users on best effort
@@ -198,6 +209,31 @@ Type *inferTypeFromUsers(const CallBase &CB) {
   return nullptr;
 }
 
+/// Determines if an LLVM Type is or contains a pointer.
+///
+/// NOTE: Language frontends should prefer emitting !alloc_partition_hint.
+bool containsPointer(Type *Ty) {
+  SmallPtrSet<const StructType *, 4> Visited;
+  auto TypeContainsPtr = [&Visited](auto &&self, Type *Ty) -> bool {
+    if (Ty->isPointerTy())
+      return true; // base case
+    // Handle arrays.
+    if (Ty->isArrayTy())
+      return self(self, Ty->getArrayElementType());
+    // Traverse structs.
+    if (auto *STy = dyn_cast<StructType>(Ty)) {
+      if (!Visited.insert(STy).second)
+        return false; // already visited
+      for (Type *ElementType : STy->elements()) {
+        if (self(self, ElementType))
+          return true;
+      }
+    }
+    return false;
+  };
+  return TypeContainsPtr(TypeContainsPtr, Ty);
+}
+
 class ModeBase {
 public:
   explicit ModeBase(uint64_t MaxPartitions) : MaxPartitions(MaxPartitions) {}
@@ -240,17 +276,25 @@ public:
   using ModeBase::ModeBase;
 
   uint64_t operator()(const CallBase &CB, OptimizationRemarkEmitter &ORE) {
-    std::optional<uint64_t> H;
+    auto [N, H] = getHash(CB, ORE);
+    const bool Valid =
+        std::visit([](auto &&TyOrMD) { return TyOrMD != nullptr; }, N);
+    return Valid ? H % MaxPartitions : H;
+  }
 
+protected:
+  std::pair<std::variant<MDNode *, Type *>, uint64_t>
+  getHash(const CallBase &CB, OptimizationRemarkEmitter &ORE) {
     if (MDNode *N = getAllocPartitionHintMetadata(CB)) {
       MDString *S = cast<MDString>(N->getOperand(0));
-      H = xxHash64(S->getString());
-    } else {
-      remarkNoHint(CB, ORE);
+      return {N, xxHash64(S->getString())};
     }
+    // Fallback.
+    remarkNoHint(CB, ORE);
     if (Type *T = inferTypeFromUsers(CB)) {
       // Printing the full IR type is expensive, cache the hash.
       auto It = HashCache.find(T);
+      uint64_t H;
       if (It == HashCache.end()) {
         std::string TypeName;
         raw_string_ostream RSO(TypeName);
@@ -259,9 +303,10 @@ public:
       } else {
         H = It->second;
       }
+      return {T, H};
     }
 
-    return H.has_value() ? *H % MaxPartitions : ClFallbackPartition;
+    return {static_cast<MDNode *>(nullptr), ClFallbackPartition};
   }
 
   /// Remark that there was no precise type information.
@@ -278,6 +323,34 @@ public:
 
 private:
   DenseMap<Type *, uint64_t> HashCache;
+};
+
+/// Implementation for PartitionMode::TypeHashPointerSplit.
+class TypeHashPointerSplitMode : public TypeHashMode {
+public:
+  using TypeHashMode::TypeHashMode;
+
+  uint64_t operator()(const CallBase &CB, OptimizationRemarkEmitter &ORE) {
+    const uint64_t HalfPartitions = MaxPartitions / 2;
+    if (HalfPartitions == 0)
+      return 0; // max partitions == 1 or 0
+    const auto SourceAndHash = getHash(CB, ORE);
+    bool Valid = false;
+    const bool ContainsPtr = std::visit(
+        [&](auto &&TyOrMD) {
+          if (!TyOrMD)
+            return false;
+          Valid = true;
+          return containsPointer(TyOrMD);
+        },
+        SourceAndHash.first);
+    if (!Valid)
+      return SourceAndHash.second;
+    uint64_t Hash = SourceAndHash.second % HalfPartitions; // base hash
+    if (ContainsPtr)
+      Hash += HalfPartitions;
+    return Hash;
+  }
 };
 
 // Apply opt overrides.
@@ -304,6 +377,9 @@ public:
       break;
     case PartitionMode::TypeHash:
       Mode.emplace<TypeHashMode>(*Options.MaxPartitions);
+      break;
+    case PartitionMode::TypeHashPointerSplit:
+      Mode.emplace<TypeHashPointerSplitMode>(*Options.MaxPartitions);
       break;
     case PartitionMode::ModeCount:
       llvm_unreachable("");
@@ -344,7 +420,9 @@ private:
   DenseMap<std::pair<LibFunc, uint64_t>, FunctionCallee>
       PartitionAllocFunctions;
   // Selected mode.
-  std::variant<IncrementMode, RandomMode, TypeHashMode> Mode;
+  std::variant<IncrementMode, RandomMode, TypeHashMode,
+               TypeHashPointerSplitMode>
+      Mode;
 };
 
 bool AllocPartition::instrumentFunction(Function &F) {
