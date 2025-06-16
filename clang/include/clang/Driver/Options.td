@@ -2708,6 +2708,22 @@ def fsanitize_skip_hot_cutoff_EQ
           "(0.0 [default] = skip none; 1.0 = skip all). "
           "Argument format: <sanitizer1>=<value1>,<sanitizer2>=<value2>,...">;
 
+def fsanitize_alloc_token_max_EQ : Joined<["-"], "fsanitize-alloc-token-max=">,
+  Group<f_Group>, MetaVarName<"<N>">,
+  HelpText<"Limit to maximum N allocation tokens">,
+  MarshallingInfoInt<CodeGenOpts<"SanitizeAllocTokenMax">, "64">;
+defm sanitize_alloc_token_fast_abi : BoolOption<"f", "sanitize-alloc-token-fast-abi",
+  CodeGenOpts<"SanitizeAllocTokenFastABI">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption], "Use the AllocToken fast ABI">,
+  NegFlag<SetFalse, [], [ClangOption], "Use the default AllocToken ABI">>,
+  Group<f_clang_Group>;
+defm sanitize_alloc_token_extended : BoolOption<"f", "sanitize-alloc-token-extended",
+  CodeGenOpts<"SanitizeAllocTokenExtended">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption], "Enable">,
+  NegFlag<SetFalse, [], [ClangOption], "Disable">,
+  BothFlags<[], [ClangOption], " extended coverage to custom allocation functions">>,
+  Group<f_clang_Group>;
+
 } // end -f[no-]sanitize* flags
 
 def fallow_runtime_check_skip_hot_cutoff_EQ
