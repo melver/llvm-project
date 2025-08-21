@@ -2944,6 +2944,9 @@ private:
   /// than 8.
   bool BuiltinAllocaWithAlign(CallExpr *TheCall);
 
+  /// Handle __builtin_alloc_token_id.
+  bool BuiltinAllocTokenID(CallExpr *TheCall);
+
   /// BuiltinArithmeticFence - Handle __arithmetic_fence.
   bool BuiltinArithmeticFence(CallExpr *TheCall);
 
