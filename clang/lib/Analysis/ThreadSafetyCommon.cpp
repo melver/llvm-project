@@ -468,11 +468,15 @@ til::SExpr *SExprBuilder::translateDeclRefExpr(const DeclRefExpr *DRE,
   if (const auto *VarD = dyn_cast<VarDecl>(VD))
     return translateVariable(VarD, Ctx);
 
-  // FIXME: A FieldDecl reached via a DeclRefExpr should ideally be modelled as
-  // a MemberExpr with an artificial self in the AST (e.g. ImplicitThisExpr as a
-  // C equivalent of CXXThisExpr). Until such AST support is available, project
-  // the field on the current SelfArg, so implicit member references in C and in
-  // parameter attributes are not lost.
+  // FIXME: In C, sibling-field references in attribute arguments are now
+  // modelled as MemberExpr(ImplicitThisExpr, field) and reach this builder
+  // via translateMemberExpr. In C++, however, attribute arguments on
+  // parameters and on members of anonymous unions can still arrive as a raw
+  // DeclRefExpr to a FieldDecl, because Sema's implicit member access does
+  // not synthesize a CXXThisExpr base in those contexts. Extending the AST
+  // refactor to cover those cases would let this fallback be removed. Until
+  // then, project the field on the current SelfArg so the implicit member
+  // reference is not lost.
   if (const auto *FD = dyn_cast<FieldDecl>(VD); FD && Ctx && Ctx->SelfArg) {
     til::SExpr *BE = translateCXXThisExpr(nullptr, Ctx);
     til::SExpr *E = new (Arena) til::SApply(BE);
