@@ -625,6 +625,16 @@ protected:
     SourceLocation OperatorLoc;
   };
 
+  class ImplicitThisExprBitfields {
+    friend class ImplicitThisExpr;
+
+    LLVM_PREFERRED_TYPE(ExprBitfields)
+    unsigned : NumExprBits;
+
+    /// The location associated with the implicit reference.
+    SourceLocation Loc;
+  };
+
   class CastExprBitfields {
     friend class CastExpr;
     friend class ImplicitCastExpr;
@@ -1362,6 +1372,7 @@ protected:
     ArrayOrMatrixSubscriptExprBitfields ArrayOrMatrixSubscriptExprBits;
     CallExprBitfields CallExprBits;
     MemberExprBitfields MemberExprBits;
+    ImplicitThisExprBitfields ImplicitThisExprBits;
     CastExprBitfields CastExprBits;
     BinaryOperatorBitfields BinaryOperatorBits;
     InitListExprBitfields InitListExprBits;

@@ -21713,6 +21713,7 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
   case Expr::NoInitExprClass:
   case Expr::DesignatedInitUpdateExprClass:
   case Expr::ImplicitValueInitExprClass:
+  case Expr::ImplicitThisExprClass:
   case Expr::ParenListExprClass:
   case Expr::VAArgExprClass:
   case Expr::AddrLabelExprClass:

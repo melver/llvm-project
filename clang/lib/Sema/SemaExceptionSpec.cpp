@@ -1404,6 +1404,7 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Expr::GNUNullExprClass:
   case Expr::ImaginaryLiteralClass:
   case Expr::ImplicitValueInitExprClass:
+  case Expr::ImplicitThisExprClass:
   case Expr::IntegerLiteralClass:
   case Expr::FixedPointLiteralClass:
   case Expr::ArrayInitIndexExprClass:

@@ -82,6 +82,7 @@ def ArraySectionExpr : StmtNode<Expr>;
 def OMPIteratorExpr : StmtNode<Expr>;
 def CallExpr : StmtNode<Expr>;
 def MemberExpr : StmtNode<Expr>;
+def ImplicitThisExpr : StmtNode<Expr>;
 def CastExpr : StmtNode<Expr, 1>;
 def BinaryOperator : StmtNode<Expr>;
 def CompoundAssignOperator : StmtNode<BinaryOperator>;

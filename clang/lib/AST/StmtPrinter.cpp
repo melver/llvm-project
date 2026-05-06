@@ -1789,11 +1789,16 @@ void StmtPrinter::VisitCallExpr(CallExpr *Call) {
 static bool isImplicitThis(const Expr *E) {
   if (const auto *TE = dyn_cast<CXXThisExpr>(E))
     return TE->isImplicit();
-  return false;
+  return isa<ImplicitThisExpr>(E);
 }
 
 void StmtPrinter::VisitMemberExpr(MemberExpr *Node) {
-  if (!Policy.SuppressImplicitBase || !isImplicitThis(Node->getBase())) {
+  // ImplicitThisExpr has no source-level syntax, so always suppress it and
+  // its operator regardless of policy.
+  bool SuppressBase = isa<ImplicitThisExpr>(Node->getBase()) ||
+                      (Policy.SuppressImplicitBase &&
+                       isImplicitThis(Node->getBase()));
+  if (!SuppressBase) {
     PrintExpr(Node->getBase());
 
     auto *ParentMember = dyn_cast<MemberExpr>(Node->getBase());
@@ -1823,6 +1828,11 @@ void StmtPrinter::VisitMemberExpr(MemberExpr *Node) {
     TPL = VTSD->getSpecializedTemplate()->getTemplateParameters();
   if (Node->hasExplicitTemplateArgs())
     printTemplateArgumentList(OS, Node->template_arguments(), Policy, TPL);
+}
+
+void StmtPrinter::VisitImplicitThisExpr(ImplicitThisExpr *Node) {
+  // Has no source-level syntax; VisitMemberExpr suppresses the base and
+  // its operator when its base is an ImplicitThisExpr.
 }
 
 void StmtPrinter::VisitObjCIsaExpr(ObjCIsaExpr *Node) {

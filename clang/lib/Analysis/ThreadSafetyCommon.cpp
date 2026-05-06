@@ -303,6 +303,8 @@ til::SExpr *SExprBuilder::translate(const Stmt *S, CallingContext *Ctx) {
     return translateDeclRefExpr(cast<DeclRefExpr>(S), Ctx);
   case Stmt::CXXThisExprClass:
     return translateCXXThisExpr(cast<CXXThisExpr>(S), Ctx);
+  case Stmt::ImplicitThisExprClass:
+    return translateImplicitThisExpr(cast<ImplicitThisExpr>(S), Ctx);
   case Stmt::MemberExprClass:
     return translateMemberExpr(cast<MemberExpr>(S), Ctx);
   case Stmt::ObjCIvarRefExprClass:
@@ -495,6 +497,15 @@ til::SExpr *SExprBuilder::translateCXXThisExpr(const CXXThisExpr *TE,
   }
   assert(SelfVar && "We have no variable for 'this'!");
   return SelfVar;
+}
+
+til::SExpr *
+SExprBuilder::translateImplicitThisExpr(const ImplicitThisExpr *TE,
+                                        CallingContext *Ctx) {
+  // ImplicitThisExpr appears in attribute arguments referencing a sibling
+  // field of the enclosing record (typically in C). Substitute the current
+  // SelfArg the same way as for CXXThisExpr.
+  return translateCXXThisExpr(/*TE=*/nullptr, Ctx);
 }
 
 // Grab the very first declaration of virtual method D

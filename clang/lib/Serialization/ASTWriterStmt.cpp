@@ -1077,6 +1077,12 @@ void ASTStmtWriter::VisitMemberExpr(MemberExpr *E) {
   Code = serialization::EXPR_MEMBER;
 }
 
+void ASTStmtWriter::VisitImplicitThisExpr(ImplicitThisExpr *E) {
+  VisitExpr(E);
+  Record.AddSourceLocation(E->getLocation());
+  Code = serialization::EXPR_IMPLICIT_THIS;
+}
+
 void ASTStmtWriter::VisitObjCIsaExpr(ObjCIsaExpr *E) {
   VisitExpr(E);
   Record.AddStmt(E->getBase());

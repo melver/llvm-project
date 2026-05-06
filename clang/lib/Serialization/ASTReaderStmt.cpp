@@ -1130,6 +1130,11 @@ void ASTStmtReader::VisitMemberExpr(MemberExpr *E) {
         E->getTrailingObjects<TemplateArgumentLoc>(), NumTemplateArgs);
 }
 
+void ASTStmtReader::VisitImplicitThisExpr(ImplicitThisExpr *E) {
+  VisitExpr(E);
+  E->setLocation(readSourceLocation());
+}
+
 void ASTStmtReader::VisitObjCIsaExpr(ObjCIsaExpr *E) {
   VisitExpr(E);
   E->setBase(Record.readSubExpr());
@@ -3373,6 +3378,10 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
                                   HasTemplateInfo, NumTemplateArgs);
       break;
     }
+
+    case EXPR_IMPLICIT_THIS:
+      S = ImplicitThisExpr::CreateEmpty(Context);
+      break;
 
     case EXPR_BINARY_OPERATOR: {
       BitsUnpacker BinaryOperatorBits(Record[ASTStmtReader::NumExprFields]);

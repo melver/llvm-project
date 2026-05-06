@@ -1692,6 +1692,9 @@ enum StmtCode {
   /// A MemberExpr record.
   EXPR_MEMBER,
 
+  /// An ImplicitThisExpr record.
+  EXPR_IMPLICIT_THIS,
+
   /// A BinaryOperator record.
   EXPR_BINARY_OPERATOR,
 

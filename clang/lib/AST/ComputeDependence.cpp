@@ -280,6 +280,12 @@ ExprDependence clang::computeDependence(AsTypeExpr *E) {
   return D;
 }
 
+ExprDependence clang::computeDependence(ImplicitThisExpr *E) {
+  // The implicit reference is type-dependent if the enclosing record type
+  // is dependent.
+  return toExprDependenceForImpliedType(E->getType()->getDependence());
+}
+
 ExprDependence clang::computeDependence(CXXRewrittenBinaryOperator *E) {
   return E->getSemanticForm()->getDependence();
 }

@@ -4982,6 +4982,7 @@ recurse:
   case Expr::AddrLabelExprClass:
   case Expr::DesignatedInitUpdateExprClass:
   case Expr::ImplicitValueInitExprClass:
+  case Expr::ImplicitThisExprClass:
   case Expr::ArrayInitLoopExprClass:
   case Expr::ArrayInitIndexExprClass:
   case Expr::NoInitExprClass:

@@ -24,7 +24,7 @@ struct on_member_pointer_complete_ty {
 // CHECK-NEXT:  |-FieldDecl {{.+}} referenced count 'int'
 // CHECK-NEXT:  |-RecordDecl {{.+}} struct definition
 // CHECK-NEXT:  | `-FieldDecl {{.+}} buf 'struct size_known * __sized_by_or_null(count)':'struct size_known *'
-// CHECK-NEXT:  |-FieldDecl {{.+}} implicit 'struct on_pointer_anon_buf::(anonymous at [[ANON_STRUCT_PATH:.+]])'
+// CHECK-NEXT:  |-FieldDecl {{.+}} implicit{{.*}} 'struct on_pointer_anon_buf::(anonymous at [[ANON_STRUCT_PATH:.+]])'
 // CHECK-NEXT:  `-IndirectFieldDecl {{.+}} implicit buf 'struct size_known * __sized_by_or_null(count)':'struct size_known *'
 // CHECK-NEXT:    |-Field {{.+}} field_index 1 'struct on_pointer_anon_buf::(anonymous at [[ANON_STRUCT_PATH]])'
 // CHECK-NEXT:    `-Field {{.+}} 'buf' 'struct size_known * __sized_by_or_null(count)':'struct size_known *'
@@ -92,7 +92,7 @@ struct on_nested_pointer_outer {
 // CHECK-NEXT:  |-FieldDecl {{.+}} referenced count 'int'
 // CHECK-NEXT:  |-RecordDecl {{.+}} struct definition
 // CHECK-NEXT:  | `-FieldDecl {{.+}} buf 'struct size_known * __sized_by_or_null(count)':'struct size_known *'
-// CHECK-NEXT:  |-FieldDecl {{.+}} implicit 'struct on_pointer_anon_buf_ty_pos::(anonymous at [[ANON_STRUCT_PATH2:.+]])'
+// CHECK-NEXT:  |-FieldDecl {{.+}} implicit{{.*}} 'struct on_pointer_anon_buf_ty_pos::(anonymous at [[ANON_STRUCT_PATH2:.+]])'
 // CHECK-NEXT:  `-IndirectFieldDecl {{.+}} implicit buf 'struct size_known * __sized_by_or_null(count)':'struct size_known *'
 // CHECK-NEXT:    |-Field {{.+}} field_index 1 'struct on_pointer_anon_buf_ty_pos::(anonymous at [[ANON_STRUCT_PATH2]])'
 // CHECK-NEXT:    `-Field {{.+}} 'buf' 'struct size_known * __sized_by_or_null(count)':'struct size_known *'
@@ -106,8 +106,8 @@ struct on_pointer_anon_buf_ty_pos {
 // CHECK-LABEL: RecordDecl {{.+}} struct on_pointer_anon_count_ty_pos definition
 // CHECK-NEXT:  |-RecordDecl {{.+}} struct definition
 // CHECK-NEXT:  | `-FieldDecl {{.+}} count 'int'
-// CHECK-NEXT:  |-FieldDecl {{.+}} implicit 'struct on_pointer_anon_count_ty_pos::(anonymous at [[ANON_STRUCT_PATH3:.+]])'
-// CHECK-NEXT:  |-IndirectFieldDecl {{.+}} implicit referenced count 'int'
+// CHECK-NEXT:  |-FieldDecl {{.+}} implicit{{.*}} 'struct on_pointer_anon_count_ty_pos::(anonymous at [[ANON_STRUCT_PATH3:.+]])'
+// CHECK-NEXT:  |-IndirectFieldDecl {{.+}} implicit{{.*}} count 'int'
 // CHECK-NEXT:  | |-Field {{.+}} field_index 0 'struct on_pointer_anon_count_ty_pos::(anonymous at [[ANON_STRUCT_PATH3]])'
 // CHECK-NEXT:  | `-Field {{.+}} 'count' 'int'
 struct on_pointer_anon_count_ty_pos {

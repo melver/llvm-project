@@ -13862,6 +13862,19 @@ TreeTransform<Derived>::TransformMemberExpr(MemberExpr *E) {
 
 template<typename Derived>
 ExprResult
+TreeTransform<Derived>::TransformImplicitThisExpr(ImplicitThisExpr *E) {
+  QualType T = getDerived().TransformType(E->getType());
+  if (T.isNull())
+    return ExprError();
+
+  if (!getDerived().AlwaysRebuild() && T == E->getType())
+    return E;
+
+  return ImplicitThisExpr::Create(SemaRef.Context, E->getLocation(), T);
+}
+
+template<typename Derived>
+ExprResult
 TreeTransform<Derived>::TransformBinaryOperator(BinaryOperator *E) {
   ExprResult LHS = getDerived().TransformExpr(E->getLHS());
   if (LHS.isInvalid())

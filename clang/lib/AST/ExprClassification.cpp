@@ -186,6 +186,7 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
   case Expr::FixedPointLiteralClass:
   case Expr::CharacterLiteralClass:
   case Expr::AddrLabelExprClass:
+  case Expr::ImplicitThisExprClass:
   case Expr::CXXDeleteExprClass:
   case Expr::ImplicitValueInitExprClass:
   case Expr::BlockExprClass:

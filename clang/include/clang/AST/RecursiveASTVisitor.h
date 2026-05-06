@@ -2657,6 +2657,8 @@ DEF_TRAVERSE_STMT(MemberExpr, {
                                             S->getNumTemplateArgs()));
 })
 
+DEF_TRAVERSE_STMT(ImplicitThisExpr, {})
+
 DEF_TRAVERSE_STMT(
     ImplicitCastExpr,
     {// We don't traverse the cast type, as it's not written in the

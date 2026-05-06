@@ -9967,8 +9967,13 @@ QualType Sema::BuildTypeofExprType(Expr *E, TypeOfKind Kind) {
 static void
 BuildTypeCoupledDecls(Expr *E,
                       llvm::SmallVectorImpl<TypeCoupledDeclRefInfo> &Decls) {
-  // Currently, 'counted_by' only allows direct DeclRefExpr to FieldDecl.
-  auto *CountDecl = cast<DeclRefExpr>(E)->getDecl();
+  // 'counted_by' accepts either a DeclRefExpr (C++) or a MemberExpr chain
+  // bottoming out in an ImplicitThisExpr (C). The leaf decl is the count.
+  ValueDecl *CountDecl = nullptr;
+  if (auto *DRE = dyn_cast<DeclRefExpr>(E))
+    CountDecl = DRE->getDecl();
+  else
+    CountDecl = cast<MemberExpr>(E)->getMemberDecl();
   Decls.push_back(TypeCoupledDeclRefInfo(CountDecl, /*IsDref*/ false));
 }
 

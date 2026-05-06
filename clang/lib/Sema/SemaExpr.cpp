@@ -2842,20 +2842,34 @@ ExprResult Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
     return ExprError();
   }
 
-  // This specially handles arguments of attributes appertains to a type of C
-  // struct field such that the name lookup within a struct finds the member
-  // name, which is not the case for other contexts in C.
+  // In C, an attribute argument appertaining to a struct field can name a
+  // sibling field of the same record by unqualified name. C has no 'this',
+  // so model the reference as a MemberExpr whose base is an
+  // ImplicitThisExpr of pointer type to the enclosing record.
   if (isAttrContext() && !getLangOpts().CPlusPlus && S->isClassScope()) {
-    // See if this is reference to a field of struct.
     LookupResult R(*this, NameInfo, LookupMemberName);
     // LookupName handles a name lookup from within anonymous struct.
     if (LookupName(R, S)) {
-      if (auto *VD = dyn_cast<ValueDecl>(R.getFoundDecl())) {
-        QualType type = VD->getType().getNonReferenceType();
-        // This will eventually be translated into MemberExpr upon
-        // the use of instantiated struct fields.
-        return BuildDeclRefExpr(VD, type, VK_LValue, NameLoc);
-      }
+      // Use the record where the looked-up field is actually declared as the
+      // implicit-this base type. This matters when the field belongs to a
+      // record that encloses the immediate (often anonymous) scope.
+      NamedDecl *Found = R.getFoundDecl();
+      auto *RD = cast<RecordDecl>(Found->getDeclContext());
+      QualType ThisTy = Context.getPointerType(Context.getCanonicalTagType(RD));
+      Expr *Base = ImplicitThisExpr::Create(Context, NameLoc, ThisTy);
+
+      if (auto *IFD = dyn_cast<IndirectFieldDecl>(Found))
+        return BuildAnonymousStructUnionMemberReference(
+            CXXScopeSpec(), NameLoc, IFD,
+            DeclAccessPair::make(IFD, IFD->getAccess()), Base, NameLoc);
+
+      if (auto *FD = dyn_cast<FieldDecl>(Found))
+        return BuildMemberExpr(
+            Base, /*IsArrow=*/true, /*OpLoc=*/NameLoc,
+            NestedNameSpecifierLoc(), /*TemplateKWLoc=*/SourceLocation(), FD,
+            DeclAccessPair::make(FD, FD->getAccess()),
+            /*HadMultipleCandidates=*/false, NameInfo,
+            FD->getType().getNonReferenceType(), VK_LValue, OK_Ordinary);
     }
   }
 

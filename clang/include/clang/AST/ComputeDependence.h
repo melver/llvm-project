@@ -49,6 +49,7 @@ class MatrixElementExpr;
 class BlockExpr;
 class AsTypeExpr;
 class DeclRefExpr;
+class ImplicitThisExpr;
 class RecoveryExpr;
 class CXXRewrittenBinaryOperator;
 class CXXStdInitializerListExpr;
@@ -141,6 +142,7 @@ ExprDependence computeDependence(BlockExpr *E,
                                  bool ContainsUnexpandedParameterPack);
 ExprDependence computeDependence(AsTypeExpr *E);
 ExprDependence computeDependence(DeclRefExpr *E, const ASTContext &Ctx);
+ExprDependence computeDependence(ImplicitThisExpr *E);
 ExprDependence computeDependence(RecoveryExpr *E);
 ExprDependence computeDependence(CXXRewrittenBinaryOperator *E);
 ExprDependence computeDependence(CXXStdInitializerListExpr *E);

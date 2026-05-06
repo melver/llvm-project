@@ -1862,6 +1862,11 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
       // analyzer can reconstruct these values from the AST.
       llvm_unreachable("Should be pruned from CFG");
 
+    case Stmt::ImplicitThisExprClass:
+      // Only appears as the synthetic base of a MemberExpr in attribute
+      // arguments, which are never part of the analyzed CFG.
+      llvm_unreachable("ImplicitThisExpr should not reach the analyzer");
+
     case Stmt::ObjCSubscriptRefExprClass:
     case Stmt::ObjCPropertyRefExprClass:
       llvm_unreachable("These are handled by PseudoObjectExpr");

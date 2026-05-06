@@ -183,15 +183,27 @@ bool Sema::CheckCountedByAttrOnField(FieldDecl *FD, Expr *E, bool CountInBytes,
     return true;
   }
 
-  auto *DRE = dyn_cast<DeclRefExpr>(E);
-  if (!DRE) {
+  // The count expression must be a simple reference to a sibling field. In C
+  // this arrives as a MemberExpr (possibly nested through an anonymous-record
+  // chain) whose ultimate base is an ImplicitThisExpr; in C++ it can be a
+  // DeclRefExpr.
+  ValueDecl *CountDecl = nullptr;
+  if (auto *DRE = dyn_cast<DeclRefExpr>(E)) {
+    CountDecl = DRE->getDecl();
+  } else if (auto *ME = dyn_cast<MemberExpr>(E)) {
+    const Expr *Inner = ME->getBase()->IgnoreParenImpCasts();
+    while (auto *NestedME = dyn_cast<MemberExpr>(Inner))
+      Inner = NestedME->getBase()->IgnoreParenImpCasts();
+    if (isa<ImplicitThisExpr>(Inner))
+      CountDecl = ME->getMemberDecl();
+  }
+  if (!CountDecl) {
     Diag(E->getBeginLoc(),
          diag::err_count_attr_only_support_simple_decl_reference)
         << Kind << E->getSourceRange();
     return true;
   }
 
-  auto *CountDecl = DRE->getDecl();
   FieldDecl *CountFD = dyn_cast<FieldDecl>(CountDecl);
   if (auto *IFD = dyn_cast<IndirectFieldDecl>(CountDecl)) {
     CountFD = IFD->getAnonField();

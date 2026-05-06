@@ -1789,6 +1789,15 @@ MemberExpr *MemberExpr::CreateEmpty(const ASTContext &Context,
   return new (Mem) MemberExpr(EmptyShell());
 }
 
+ImplicitThisExpr *ImplicitThisExpr::Create(const ASTContext &Ctx,
+                                           SourceLocation L, QualType Ty) {
+  return new (Ctx) ImplicitThisExpr(L, Ty);
+}
+
+ImplicitThisExpr *ImplicitThisExpr::CreateEmpty(const ASTContext &Ctx) {
+  return new (Ctx) ImplicitThisExpr(EmptyShell());
+}
+
 void MemberExpr::setMemberDecl(ValueDecl *NewD) {
   MemberDecl = NewD;
   if (getType()->isUndeducedType())
@@ -3737,6 +3746,7 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
   case GNUNullExprClass:
   case ArrayInitIndexExprClass:
   case NoInitExprClass:
+  case ImplicitThisExprClass:
   case CXXBoolLiteralExprClass:
   case CXXNullPtrLiteralExprClass:
   case CXXThisExprClass:
@@ -4334,6 +4344,7 @@ bool Expr::isSameComparisonOperand(const Expr* E1, const Expr* E2) {
   switch (E1->getStmtClass()) {
     default:
       return false;
+    case ImplicitThisExprClass:
     case CXXThisExprClass:
       return true;
     case DeclRefExprClass: {

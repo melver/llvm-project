@@ -3603,6 +3603,60 @@ public:
   }
 };
 
+/// Represents an implicit reference to the enclosing object inside an
+/// attribute argument that names a sibling field.
+///
+/// In C, an attribute on a struct member can name another member of the
+/// same record (e.g. \c GUARDED_BY(mu_)). C has no \c this expression,
+/// so unqualified field references in this context are modelled as a
+/// \c MemberExpr whose base is an \c ImplicitThisExpr of pointer type to
+/// the enclosing record. This is the C-side equivalent of \c CXXThisExpr
+/// for purposes of attribute argument resolution.
+///
+/// Example:
+/// \code
+/// struct Foo {
+///   struct Mutex *mu_;
+///   int a __attribute__((guarded_by(mu_)));
+/// };
+/// \endcode
+///
+/// Here, \c mu_ resolves to a \c MemberExpr with an \c ImplicitThisExpr
+/// of type \c "struct Foo *" as its base.
+class ImplicitThisExpr : public Expr {
+  ImplicitThisExpr(SourceLocation L, QualType Ty)
+      : Expr(ImplicitThisExprClass, Ty, VK_PRValue, OK_Ordinary) {
+    ImplicitThisExprBits.Loc = L;
+    setDependence(computeDependence(this));
+  }
+
+  ImplicitThisExpr(EmptyShell Empty) : Expr(ImplicitThisExprClass, Empty) {}
+
+public:
+  static ImplicitThisExpr *Create(const ASTContext &Ctx, SourceLocation L,
+                                  QualType Ty);
+
+  static ImplicitThisExpr *CreateEmpty(const ASTContext &Ctx);
+
+  SourceLocation getLocation() const { return ImplicitThisExprBits.Loc; }
+  void setLocation(SourceLocation L) { ImplicitThisExprBits.Loc = L; }
+
+  SourceLocation getBeginLoc() const { return getLocation(); }
+  SourceLocation getEndLoc() const { return getLocation(); }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == ImplicitThisExprClass;
+  }
+
+  // Iterators
+  child_range children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+};
+
 /// CompoundLiteralExpr - [C99 6.5.2.5]
 ///
 class CompoundLiteralExpr : public Expr {

@@ -55,6 +55,7 @@ class CXXThisExpr;
 class DeclRefExpr;
 class DeclStmt;
 class Expr;
+class ImplicitThisExpr;
 class MemberExpr;
 class Stmt;
 class UnaryOperator;
@@ -428,6 +429,8 @@ private:
   til::SExpr *translateDeclRefExpr(const DeclRefExpr *DRE,
                                    CallingContext *Ctx) ;
   til::SExpr *translateCXXThisExpr(const CXXThisExpr *TE, CallingContext *Ctx);
+  til::SExpr *translateImplicitThisExpr(const ImplicitThisExpr *TE,
+                                        CallingContext *Ctx);
   til::SExpr *translateMemberExpr(const MemberExpr *ME, CallingContext *Ctx);
   til::SExpr *translateObjCIVarRefExpr(const ObjCIvarRefExpr *IVRE,
                                        CallingContext *Ctx);
